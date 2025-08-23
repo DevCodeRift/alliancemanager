@@ -9,6 +9,7 @@ export default function Login() {
   const [details, setDetails] = useState<any | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [pnwLinked, setPnwLinked] = useState(false)
+  const [debugResponse, setDebugResponse] = useState<any | null>(null)
 
   const router = useRouter()
 
@@ -53,8 +54,9 @@ export default function Login() {
         body: JSON.stringify({ apiKey }),
       })
       const json = await res.json()
+  setDebugResponse(json)
       if (!res.ok) {
-        setMessage(json?.message || 'Failed to link key')
+  setMessage(json?.message || 'Failed to link key')
       } else {
   setDetails(json.details || null)
   setPnwLinked(true)
@@ -122,6 +124,12 @@ export default function Login() {
 
           <div style={{ marginTop: 8 }}>
             {message && <div style={{ marginTop: 8, fontSize: 13 }}>{message}</div>}
+
+            {debugResponse && (
+              <pre style={{ marginTop: 8, fontSize: 11, maxHeight: 160, overflow: 'auto', background: 'rgba(255,255,255,0.02)', padding: 8, borderRadius: 6 }}>
+                {JSON.stringify(debugResponse, null, 2)}
+              </pre>
+            )}
 
             {details && (
               <div style={{ marginTop: 12 }}>
