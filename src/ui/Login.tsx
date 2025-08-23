@@ -14,7 +14,7 @@ export default function Login() {
 
   useEffect(() => {
     // wait for an authenticated session to avoid 401 race
-    if (!session?.user) return
+    if (status !== 'authenticated') return
     let cancelled = false
     ;(async () => {
       try {
@@ -27,6 +27,7 @@ export default function Login() {
             // If allianceSlug present, immediately redirect to members page using router
             if (j.user?.allianceSlug) {
               router.replace(`/${encodeURIComponent(j.user.allianceSlug)}/members`)
+              return
             }
           }
         }
@@ -62,17 +63,26 @@ export default function Login() {
           if (json.allianceSlug) {
               router.replace(`/${encodeURIComponent(json.allianceSlug)}/members`)
             } else {
-            // fallback: ask server for the user's alliance (resolved to slug)
-            try {
-              const me = await fetch('/api/user/me')
-              const meJ = await me.json()
-                if (meJ?.ok && meJ.user?.allianceSlug) {
-                  router.replace(`/${encodeURIComponent(meJ.user.allianceSlug)}/members`)
+              // fallback: poll /api/user/me for a short time until the allianceSlug becomes available
+              const start = Date.now()
+              const timeout = 5000 // ms
+              let redirected = false
+              while (Date.now() - start < timeout && !redirected) {
+                try {
+                  // small delay
+                  await new Promise((r) => setTimeout(r, 500))
+                  const me = await fetch('/api/user/me')
+                  const meJ = await me.json()
+                  if (meJ?.ok && meJ.user?.allianceSlug) {
+                    router.replace(`/${encodeURIComponent(meJ.user.allianceSlug)}/members`)
+                    redirected = true
+                  }
+                } catch (e) {
+                  // ignore and retry until timeout
                 }
-            } catch (e) {
-              // ignore; stay on the page
+              }
+              // if not redirected after timeout, remain on page and show success message
             }
-          }
       }
     } catch (e: any) {
       setMessage(e?.message || 'Network error')
