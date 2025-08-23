@@ -13,6 +13,7 @@
   "react": "18.2.0",
   "react-dom": "18.2.0",
   "next-auth": "4.22.1",
+  "@next-auth/prisma-adapter": "*",
   "@prisma/client": "5.9.0"
   },
   "devDependencies": {
