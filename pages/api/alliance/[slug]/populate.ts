@@ -5,67 +5,68 @@ import { decryptText } from '../../../../src/lib/crypto'
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
 async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
-  // Fetch alliance members via PnW GraphQL. Use `alliances` root field (API expects plural).
-  const q = `query { alliances(ids: [${pnwAllianceId}]) { members { id nation_name leader_name alliance_id } } }`
-
+  // Preferred approach: page through `nations(alliance_id: ...)` which is reliable and paginated.
   async function doQuery(query: string) {
     console.log('/api/alliance/[slug]/populate doQuery ->', query)
     const r = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
     const text = await r.text().catch(() => '')
     console.log(`/api/alliance/[slug]/populate PNW response status=${r.status} body=${text}`)
-    if (!r.ok) {
-      return { ok: false, status: r.status, body: text }
-    }
+    if (!r.ok) return { ok: false, status: r.status, body: text }
     const parsed = JSON.parse(text)
     if (parsed.errors) return { ok: false, status: 200, errors: parsed.errors }
     return { ok: true, data: parsed.data }
   }
 
-  // Try full members query first
-  const first = await doQuery(q)
-  if (first.ok) {
-    const members = first.data?.alliances && first.data.alliances.length ? first.data.alliances[0].members : null
-    if (members) return members
-    // no members found in alliances response
-    return []
-  } else if (!first.ok && first.status && first.status >= 500) {
-    console.warn('/api/alliance/[slug]/populate: PnW returned 5xx, attempting chunked fallback')
-    // attempt lightweight ids-only query and then fetch details in batches
-    const idsQuery = `query { alliances(ids: [${pnwAllianceId}]) { members { id } } }`
-    const idsRes = await doQuery(idsQuery)
-    if (!idsRes.ok) {
-      // try singular fallback
-      const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
-      const res2 = await doQuery(q2)
-      if (!res2.ok) {
-        const errBody = res2.body || JSON.stringify(res2.errors || 'unknown')
-        throw new Error(`PNW HTTP ${res2.status || 500}: ${errBody}`)
+  // Page through nations(alliance_id: ...) first (safer than alliances.members which has returned 500s for some ids)
+  const perPage = 100
+  let page = 1
+  const collected: any[] = []
+  while (true) {
+    const q = `query { nations(alliance_id: ${pnwAllianceId}, first: ${perPage}, page: ${page}) { paginatorInfo { hasMorePages } data { id nation_name leader_name alliance_id } } }`
+    const r = await doQuery(q)
+    if (!r.ok) {
+      // If the nations query fails with a server error, fall back to the previous alliances/ids batching approach
+      if (r.status && r.status >= 500) {
+        console.warn('/api/alliance/[slug]/populate: nations(...) returned 5xx, falling back to alliances/ids batching')
+        break
       }
-      return res2.data?.alliance?.members || []
+      // surface GraphQL errors
+      if (r.errors) throw new Error(JSON.stringify(r.errors))
+      throw new Error(`PNW query failed: ${r.body || 'unknown'}`)
     }
-    const idList = idsRes.data?.alliances && idsRes.data.alliances.length ? idsRes.data.alliances[0].members.map((m: any) => m.id) : []
-  // fetch details in batches of 50
-    const batchSize = 50
-    const result: any[] = []
-    for (let i = 0; i < idList.length; i += batchSize) {
-      const chunk = idList.slice(i, i + batchSize)
-      const detailsQuery = `query { nations(ids: [${chunk.join(',')}]) { id nation_name leader_name alliance_id } }`
-      const dres = await doQuery(detailsQuery)
-      if (!dres.ok) {
-        console.error('Chunk details fetch failed', dres)
-        continue
-      }
-      if (dres.data?.nations) result.push(...dres.data.nations)
-    }
-    return result
+
+    const pageData = r.data?.nations?.data || []
+    collected.push(...pageData)
+    const hasMore = !!r.data?.nations?.paginatorInfo?.hasMorePages
+    if (!hasMore) break
+    page += 1
   }
 
-  // If the initial query returned GraphQL errors (e.g. malformed/unsupported fields), surface them.
-  if (!first.ok && first.errors) {
-    throw new Error(JSON.stringify(first.errors))
+  if (collected.length) return collected
+
+  // Fallback: attempt old alliances -> ids -> nations batching if nations(...) failed with 5xx
+  // (This mirrors the previous logic but only runs when needed.)
+  console.warn('/api/alliance/[slug]/populate: attempting fallback using alliances root field')
+  const alliancesQuery = `query { alliances(ids: [${pnwAllianceId}]) { members { id } } }`
+  const idsRes = await doQuery(alliancesQuery)
+  if (!idsRes.ok) {
+    const errBody = idsRes.body || JSON.stringify(idsRes.errors || 'unknown')
+    throw new Error(`PNW HTTP ${idsRes.status || 500}: ${errBody}`)
   }
-  // otherwise attempt singular fallback only for completeness (rare)
-  return []
+  const idList = idsRes.data?.alliances && idsRes.data.alliances.length ? idsRes.data.alliances[0].members.map((m: any) => m.id) : []
+  const batchSize = 50
+  const result: any[] = []
+  for (let i = 0; i < idList.length; i += batchSize) {
+    const chunk = idList.slice(i, i + batchSize)
+    const detailsQuery = `query { nations(ids: [${chunk.join(',')}]) { id nation_name leader_name alliance_id } }`
+    const dres = await doQuery(detailsQuery)
+    if (!dres.ok) {
+      console.error('Chunk details fetch failed', dres)
+      continue
+    }
+    if (dres.data?.nations) result.push(...dres.data.nations)
+  }
+  return result
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
