@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import prisma from '../../../../src/lib/prisma'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '../../auth/[...nextauth]'
+import { decryptText } from '../../../../src/lib/crypto'
 
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
@@ -23,8 +26,27 @@ async function fetchNationsByIds(ids: number[], apiKey: string) {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'POST only' })
   const { slug } = req.query as { slug: string }
-  const { apiKey } = req.body || {}
-  if (!apiKey || typeof apiKey !== 'string') return res.status(400).json({ ok: false, message: 'apiKey required' })
+  let { apiKey } = req.body || {}
+  // if no apiKey provided, try to use the authenticated user's stored PnW key
+  if (!apiKey) {
+    try {
+      const session = await getServerSession(req as any, res as any, authOptions as any) as any
+      if (session?.user?.email) {
+        const dbUser = await prisma.user.findUnique({ where: { email: session.user.email } })
+        if (dbUser?.pnwApiKey) {
+          const secret = process.env.STACK_SECRET_SERVER_KEY
+          if (secret) {
+            try { apiKey = decryptText(dbUser.pnwApiKey, secret) } catch (e) { apiKey = dbUser.pnwApiKey }
+          } else {
+            apiKey = dbUser.pnwApiKey
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+  if (!apiKey || typeof apiKey !== 'string') return res.status(400).json({ ok: false, message: 'apiKey required (or link your PnW key to use Sync)' })
 
   const alliance = await prisma.alliance.findUnique({ where: { slug } })
   if (!alliance) return res.status(404).json({ ok: false, message: 'Alliance not found' })

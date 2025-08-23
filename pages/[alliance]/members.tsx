@@ -17,8 +17,10 @@ export default function MembersPage() {
     ;(async () => {
       setMembersLoading(true)
       try {
-        const q = new URLSearchParams({ order: order === 'name' ? '' : order, dir })
-        const res = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${q.toString()}`)
+        const params = new URLSearchParams()
+        if (order !== 'name') params.set('order', order)
+        params.set('dir', dir)
+        const res = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
         const j = await res.json()
         if (j.ok) setData(j)
       } finally {
@@ -86,15 +88,31 @@ export default function MembersPage() {
           <button className="discord-btn" onClick={async () => {
             setMembersLoading(true)
             try {
+              if (popKey) {
+                // call refresh to persist snapshots, then fetch members
+                await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey: popKey }) })
+              }
               const params = new URLSearchParams()
               if (order !== 'name') params.set('order', order)
               params.set('dir', dir)
-              if (popKey) params.set('apiKey', popKey)
               const r = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
               const j = await r.json()
               if (j.ok) setData(j)
             } finally { setMembersLoading(false) }
           }}>{membersLoading ? 'Loading…' : 'Refresh'}</button>
+          <button className="discord-btn" onClick={async () => {
+            // sync using logged-in user's linked PnW key (server will use stored key if available)
+            setMembersLoading(true)
+            try {
+              await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+              const params = new URLSearchParams()
+              if (order !== 'name') params.set('order', order)
+              params.set('dir', dir)
+              const r = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
+              const j = await r.json()
+              if (j.ok) setData(j)
+            } finally { setMembersLoading(false) }
+          }}>Sync with my linked key</button>
           <button className="discord-btn" onClick={handlePopulate} disabled={popLoading}>{popLoading ? 'Populating…' : 'Populate members'}</button>
         </div>
       </div>
@@ -114,6 +132,9 @@ export default function MembersPage() {
                       <div className="member-name">{u.name ?? u.email}</div>
                       <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
                       {u.pnw?.alliance_position_info?.name && <div className="member-meta">Position: {u.pnw?.alliance_position_info?.name}</div>}
+                      {u.pnw?.seniority != null && <div className="member-meta">Seniority: {u.pnw?.seniority}</div>}
+                      {u.pnw?.last_active && <div className="member-meta">Last active: {new Date(u.pnw?.last_active).toLocaleString()}</div>}
+                      {u.pnw?.num_cities != null && <div className="member-meta">Cities: {u.pnw?.num_cities}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
