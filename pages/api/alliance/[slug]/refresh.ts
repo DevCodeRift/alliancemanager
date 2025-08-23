@@ -15,9 +15,10 @@ async function fetchNationsByIds(ids: number[], apiKey: string) {
     const r = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) })
     const text = await r.text().catch(() => '')
     if (!r.ok) throw new Error(`PnW fetch failed: ${r.status} ${text}`)
-    const parsed = JSON.parse(text)
-    if (parsed.errors) throw new Error(JSON.stringify(parsed.errors))
-    const data = parsed.data?.nations?.data || []
+  const parsed = JSON.parse(text)
+  if (parsed.errors) throw new Error(JSON.stringify(parsed.errors))
+  // PnW sometimes returns { nations: { data: [...] } } and sometimes { nations: [...] }
+  const data = parsed.data?.nations?.data ?? parsed.data?.nations ?? []
     out.push(...data)
   }
   return out
@@ -66,10 +67,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const nid = Number((u as any).pnwNationId)
       const n = byId.get(nid)
       if (!n) continue
+      // normalize last_active: PnW may return seconds or milliseconds or an ISO string
+      let lastActive: Date | null = null
+      if (n.last_active) {
+        if (typeof n.last_active === 'number') {
+          // if seconds (typical small number), convert to ms
+          lastActive = new Date(n.last_active < 1e12 ? n.last_active * 1000 : n.last_active)
+        } else {
+          // assume ISO string or other parseable format
+          const parsedDate = new Date(n.last_active)
+          lastActive = isNaN(parsedDate.getTime()) ? null : parsedDate
+        }
+      }
       await prisma.user.update({ where: { id: u.id }, data: {
         pnwSnapshot: n,
         pnwLastSynced: new Date(),
-        pnwLastActive: n.last_active ? new Date(n.last_active) : null,
+        pnwLastActive: lastActive,
         pnwNumCities: n.num_cities ?? null,
         pnwAlliancePositionId: n.alliance_position_id ?? null,
         pnwAlliancePositionName: n.alliance_position_info?.name ?? null,

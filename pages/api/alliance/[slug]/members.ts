@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       alliance_position_id: m.pnwAlliancePositionId,
       alliance_position_info: m.pnwAlliancePositionName ? { id: m.pnwAlliancePositionId, name: m.pnwAlliancePositionName } : null,
       num_cities: m.pnwNumCities,
-      last_active: m.pnwLastActive
+      last_active: m.pnwLastActive ? (new Date(m.pnwLastActive)).toISOString() : null
     } : null)
   }))
 
