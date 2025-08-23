@@ -44,9 +44,16 @@ export default function Login() {
       } else {
         setDetails(json.details || null)
         setMessage('Linked successfully')
-        if (json.allianceSlug) {
-          // redirect to alliance members page
-          window.location.href = `/${encodeURIComponent(json.allianceSlug)}/members`
+        // redirect to alliance members page: prefer returned allianceSlug, otherwise build fallback from details
+        const slug = json.allianceSlug || (json.details?.nation ? (
+          (() => {
+            const pnwId = String(json.details.nation.alliance_id || '')
+            const rawName = json.details.nation.alliance_name || (pnwId ? `Alliance ${pnwId}` : '')
+            return rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || pnwId
+          })()
+        ) : null)
+        if (slug) {
+          window.location.href = `/${encodeURIComponent(slug)}/members`
         }
       }
     } catch (e: any) {

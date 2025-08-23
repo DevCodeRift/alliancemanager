@@ -71,8 +71,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       if (details?.nation?.alliance_id) {
         pnwId = Number(details.nation.alliance_id)
         const rawName = details.nation.alliance_name || `Alliance ${pnwId}`
-        const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || String(pnwId)
-        allianceSlug = slug
+        let slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || String(pnwId)
+
+        // ensure slug uniqueness: if slug exists for another alliance, append pnwId
+        const existing = await prisma.alliance.findUnique({ where: { slug } })
+        if (existing && existing.pnwAllianceId !== pnwId) {
+          slug = `${slug}-${pnwId}`
+        }
+
+        // upsert by pnwAllianceId (unique); if create fails due to slug collision this avoids most conflicts
         await prisma.alliance.upsert({
           where: { pnwAllianceId: pnwId },
           update: { name: rawName, slug, pnwAllianceId: pnwId },
@@ -82,14 +89,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         // resolve the alliance record and set the user's allianceId to the internal Alliance.id
         const allianceRecord = await prisma.alliance.findUnique({ where: { pnwAllianceId: pnwId } })
         if (allianceRecord) {
+          allianceSlug = allianceRecord.slug
           await prisma.user.update({
             where: { email: session.user.email },
             data: { allianceId: allianceRecord.id },
           })
         }
       }
-    } catch (e) {
-      console.warn('Failed to upsert alliance or set user allianceId', e)
+    } catch (e: any) {
+      console.error('Failed to upsert alliance or set user allianceId', e)
+      // If NEXTAUTH_DEBUG is true return the error message to help debugging, else generic 500
+      if (process.env.NEXTAUTH_DEBUG === 'true') {
+        return res.status(500).json({ success: false, message: 'Failed to upsert alliance: ' + (e.message || String(e)) })
+      }
+      return res.status(500).json({ success: false, message: 'Internal server error' })
     }
 
     return res.status(200).json({ success: true, details, allianceSlug })
