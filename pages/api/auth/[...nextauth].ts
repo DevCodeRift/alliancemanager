@@ -3,7 +3,7 @@ import DiscordProvider from 'next-auth/providers/discord'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import prisma from '../../../src/lib/prisma'
 
-const options = {
+export const authOptions = {
   providers: [
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID || '',
@@ -24,7 +24,7 @@ const options = {
 
 // create the handler once
 // cast to any to avoid a TypeScript mismatch on session.strategy
-const nextAuthHandler = NextAuth(options as any)
+const nextAuthHandler = NextAuth(authOptions as any)
 
 export default async function handler(req: any, res: any) {
   // Log presence of critical env vars (do not print secrets)
