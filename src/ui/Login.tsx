@@ -24,7 +24,7 @@ export default function Login() {
         if (!cancelled && j?.ok) {
           if (j.user?.pnwLinked) {
             setPnwLinked(true)
-            setMessage('PnW key already linked')
+            setMessage('PnW key already linked — unlink to replace')
             // If allianceSlug present, immediately redirect to members page using router
             if (j.user?.allianceSlug) {
               router.replace(`/${encodeURIComponent(j.user.allianceSlug)}/members`)
@@ -113,13 +113,27 @@ export default function Login() {
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="Paste your PnW API key (assigned to your nation)"
             style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'inherit' }}
+            disabled={pnwLinked}
           />
 
           <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-            <button className="discord-btn" onClick={handleLink} disabled={loading || !apiKey}>
-              {loading ? 'Linking…' : 'Link'}
+            <button className="discord-btn" onClick={handleLink} disabled={loading || !apiKey || pnwLinked}>
+              {loading ? 'Linking…' : (pnwLinked ? 'Already linked' : 'Link')}
             </button>
             <button style={{ background: 'transparent', color: 'inherit', border: '1px solid rgba(255,255,255,0.08)', padding: '8px 12px', borderRadius: 6 }} onClick={() => signOut({ callbackUrl: '/' })}>Sign out</button>
+            {/* If account already linked but we don't have details locally, allow unlink here */}
+            {pnwLinked && !details && (
+              <button style={{ background: 'transparent', color: 'inherit', border: '1px solid rgba(255,255,255,0.08)', padding: '8px 12px', borderRadius: 6 }} onClick={async () => {
+                const r = await fetch('/api/pnw/unlink', { method: 'POST' })
+                if (r.ok) {
+                  setDetails(null)
+                  setPnwLinked(false)
+                  setMessage('Unlinked')
+                } else {
+                  setMessage('Failed to unlink')
+                }
+              }}>Unlink</button>
+            )}
           </div>
 
           <div style={{ marginTop: 8 }}>

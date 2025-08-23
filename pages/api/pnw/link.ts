@@ -59,21 +59,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     } catch (e) {
       console.warn('Failed to encrypt PnW API key, storing raw')
     }
+    // Save PnW key and set display name/role. Do NOT write allianceId yet — resolve/create Alliance first and set internal id.
     const user = await prisma.user.update({
       where: { email: session.user.email },
       data: {
         pnwApiKey: stored,
         ...(details?.nation?.leader_name ? { name: details.nation.leader_name } : {}),
-        // map alliance from PnW nation
-        ...(details?.nation?.alliance_id ? { allianceId: String(details.nation.alliance_id) } : {}),
         // set allianceRole: leader=5, member=2, applicant=1, none=0
         ...(details?.nation ? { allianceRole: details.nation.leader_name ? 5 : (details.nation.alliance_id ? 2 : 0) } : {}),
       },
     })
 
     // ensure Alliance record exists: use human slug from alliance_name (fallback to numeric id)
-    let allianceSlug: string | null = null
-    let pnwId: number | null = null
+  let allianceSlug: string | null = null
+  let pnwId: number | null = null
+  let internalAllianceId: string | null = null
     try {
       // Try to resolve/create alliance using pnwAllianceId when available, otherwise fall back to alliance_name
       if (details?.nation) {
@@ -110,6 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         if (allianceRecord) {
           allianceSlug = allianceRecord.slug
           pnwId = allianceRecord.pnwAllianceId ?? null
+          internalAllianceId = allianceRecord.id
           await prisma.user.update({ where: { email: session.user.email }, data: { allianceId: allianceRecord.id } })
         }
       }
@@ -121,7 +122,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(500).json({ success: false, message: 'Internal server error' })
     }
 
-  return res.status(200).json({ success: true, details, allianceSlug, allianceId: pnwId ? String(pnwId) : null })
+  // return internal alliance id (if resolved) plus the public alliance slug
+  return res.status(200).json({ success: true, details, allianceSlug, allianceId: internalAllianceId })
   } catch (err: any) {
     console.error('[pnw/link] error', err)
     return res.status(500).json({ success: false, message: 'Internal server error' })
