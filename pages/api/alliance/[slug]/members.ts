@@ -8,8 +8,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const alliance = await prisma.alliance.findUnique({ where: { slug } })
   if (!alliance) return res.status(404).json({ ok: false, message: 'Not found' })
 
-  // list members: Verified (have pnwApiKey) vs Not Verified (no pnwApiKey but belong to alliance by allianceId)
-  const members = await prisma.user.findMany({ where: { allianceId: alliance.id } })
+  // list members: include users who reference the internal alliance id OR the legacy PnW numeric id stored as a string
+  const orClauses: any[] = [{ allianceId: alliance.id }]
+  if (alliance.pnwAllianceId) {
+    orClauses.push({ allianceId: String(alliance.pnwAllianceId) })
+  }
+  const members = await prisma.user.findMany({ where: { OR: orClauses } })
   const verified = (members as any[]).filter((m) => !!m.pnwApiKey)
   const notVerified = (members as any[]).filter((m) => !m.pnwApiKey)
   return res.json({ ok: true, verified, notVerified })
