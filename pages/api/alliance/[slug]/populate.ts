@@ -5,8 +5,8 @@ import { decryptText } from '../../../../src/lib/crypto'
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
 async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
-  // Fetch alliance members via PnW GraphQL. Adjust query fields as needed.
-  const q = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name } } }`
+  // Fetch alliance members via PnW GraphQL. Use `alliances` root field (API expects plural).
+  const q = `query { alliances(ids: [${pnwAllianceId}]) { members { id nation_name leader_name alliance_id } } }`
   const res = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -15,7 +15,18 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
   if (!res.ok) throw new Error(`PNW HTTP ${res.status}`)
   const j = await res.json()
   if (j.errors) throw new Error(JSON.stringify(j.errors))
-  return j.data?.alliance?.members || []
+  // data may be under data.alliances[0].members
+  const members = j.data?.alliances && j.data.alliances.length ? j.data.alliances[0].members : null
+  if (!members) {
+    // fallback: try singular field
+    const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
+    const res2 = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q2 }) })
+    if (!res2.ok) throw new Error(`PNW HTTP ${res2.status}`)
+    const j2 = await res2.json()
+    if (j2.errors) throw new Error(JSON.stringify(j2.errors))
+    return j2.data?.alliance?.members || []
+  }
+  return members
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
