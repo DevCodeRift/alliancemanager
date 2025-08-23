@@ -12,18 +12,32 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: q }),
   })
-  if (!res.ok) throw new Error(`PNW HTTP ${res.status}`)
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => '')
+    console.error(`/api/alliance/[slug]/populate PNW error status=${res.status} body=${bodyText}`)
+    throw new Error(`PNW HTTP ${res.status}: ${bodyText}`)
+  }
   const j = await res.json()
-  if (j.errors) throw new Error(JSON.stringify(j.errors))
+  if (j.errors) {
+    console.error('/api/alliance/[slug]/populate PNW graphql errors', JSON.stringify(j.errors))
+    throw new Error(JSON.stringify(j.errors))
+  }
   // data may be under data.alliances[0].members
   const members = j.data?.alliances && j.data.alliances.length ? j.data.alliances[0].members : null
   if (!members) {
     // fallback: try singular field
     const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
     const res2 = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q2 }) })
-    if (!res2.ok) throw new Error(`PNW HTTP ${res2.status}`)
+    if (!res2.ok) {
+      const body2 = await res2.text().catch(() => '')
+      console.error(`/api/alliance/[slug]/populate PNW fallback error status=${res2.status} body=${body2}`)
+      throw new Error(`PNW HTTP ${res2.status}: ${body2}`)
+    }
     const j2 = await res2.json()
-    if (j2.errors) throw new Error(JSON.stringify(j2.errors))
+    if (j2.errors) {
+      console.error('/api/alliance/[slug]/populate PNW fallback graphql errors', JSON.stringify(j2.errors))
+      throw new Error(JSON.stringify(j2.errors))
+    }
     return j2.data?.alliance?.members || []
   }
   return members
