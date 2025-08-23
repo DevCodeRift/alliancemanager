@@ -113,10 +113,11 @@ export default function MembersPage() {
                     <div>
                       <div className="member-name">{u.name ?? u.email}</div>
                       <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
+                      {u.pnw?.alliance_position_info?.name && <div className="member-meta">Position: {u.pnw?.alliance_position_info?.name}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {u.pnw && <div className="badge">{order === 'cities' ? `${u.pnw?.num_cities} cities` : u.pnw?.alliance_position_id ?? '—'}</div>}
+                    {u.pnw && <div className="badge">{order === 'cities' ? `${u.pnw?.num_cities} cities` : (u.pnw?.alliance_position_info?.name || u.pnw?.alliance_position_id || '—')}</div>}
                   </div>
                 </li>
               ))}

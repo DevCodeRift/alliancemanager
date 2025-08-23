@@ -15,6 +15,16 @@ model User {
   image         String?
   pnwApiKey     String?   @db.Text
   pnwNationId   Int?      @unique
+  // persisted Politics & War snapshot fields
+  pnwSnapshot   Json?
+  pnwLastSynced DateTime?
+  pnwLastActive DateTime?
+  pnwNumCities  Int?
+  pnwAlliancePositionId Int?
+  pnwAlliancePositionName String?
+  pnwAllianceSeniority Int?
+  pnwNationName String?
+  pnwLeaderName String?
   // alliance membership
   allianceId    String?
   allianceRole  Int?      @default(0) // 0=no alliance, 1=applicant,2=member,5=leader

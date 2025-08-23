@@ -10,7 +10,7 @@ async function fetchNationsByIds(ids: number[], apiKey: string) {
   const out: any[] = []
   for (let i = 0; i < ids.length; i += batchSize) {
     const chunk = ids.slice(i, i + batchSize)
-    const q = `query { nations(ids: [${chunk.join(',')}]) { data { id nation_name leader_name alliance_position alliance_position_id num_cities } } }`
+    const q = `query { nations(ids: [${chunk.join(',')}]) { data { id nation_name leader_name alliance_position alliance_position_id alliance_position_info { id name } num_cities } } }`
     const r = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) })
     const text = await r.text().catch(() => '')
     if (!r.ok) throw new Error(`PnW fetch failed: ${r.status} ${text}`)
@@ -36,7 +36,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const members = await prisma.user.findMany({ where: { OR: orClauses } })
 
-  let enriched: any[] = (members as any[]).map((m: any) => ({ ...m, pnw: null }))
+  // map DB users to objects and include persisted PnW snapshot if present
+  let enriched: any[] = (members as any[]).map((m: any) => ({
+    ...m,
+    pnw: m.pnwSnapshot || (m.pnwNationId ? {
+      id: m.pnwNationId,
+      nation_name: m.pnwNationName,
+      leader_name: m.pnwLeaderName,
+      alliance_position_id: m.pnwAlliancePositionId,
+      alliance_position_info: m.pnwAlliancePositionName ? { id: m.pnwAlliancePositionId, name: m.pnwAlliancePositionName } : null,
+      num_cities: m.pnwNumCities,
+      last_active: m.pnwLastActive
+    } : null)
+  }))
 
   // If ordering requires PnW info (position or cities) and an apiKey is supplied, fetch nations and attach
   if (order && (order === 'position' || order === 'cities') && apiKey) {
