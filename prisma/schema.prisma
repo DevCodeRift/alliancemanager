@@ -14,8 +14,15 @@ model User {
   emailVerified DateTime?
   image         String?
   pnwApiKey     String?   @db.Text
+  // alliance membership
+  allianceId    String?
+  allianceRole  Int?      @default(0) // 0=no alliance, 1=applicant,2=member,5=leader
   accounts      Account[]
   sessions      Session[]
+  alliance      Alliance? @relation("AllianceMembers", fields: [allianceId], references: [id])
+  // if a user owns an alliance
+  ownedAlliance Alliance? @relation("AllianceOwner")
+  roles         UserRole[]
 }
 
 model Account {
@@ -52,4 +59,36 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Alliance {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  whitelisted Boolean @default(false)
+  ownerId     String?  @unique
+  owner       User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
+  members     User[]  @relation("AllianceMembers")
+  roles       Role[]
+}
+
+model Role {
+  id         String   @id @default(cuid())
+  name       String
+  allianceId String
+  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  assignments UserRole[]
+
+  @@unique([name, allianceId])
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
 }

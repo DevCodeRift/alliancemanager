@@ -57,8 +57,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       data: {
         pnwApiKey: stored,
         ...(details?.nation?.leader_name ? { name: details.nation.leader_name } : {}),
+        // map alliance from PnW nation
+        ...(details?.nation?.alliance_id ? { allianceId: String(details.nation.alliance_id) } : {}),
+        // set allianceRole: leader=5, member=2, applicant=1, none=0
+        ...(details?.nation ? { allianceRole: details.nation.leader_name ? 5 : (details.nation.alliance_id ? 2 : 0) } : {}),
       },
     })
+
+    // ensure Alliance record exists (use alliance_id as slug)
+    try {
+      if (details?.nation?.alliance_id) {
+        const slug = String(details.nation.alliance_id)
+        const name = details.nation.alliance_name || `Alliance ${slug}`
+        await prisma.alliance.upsert({
+          where: { slug },
+          update: { name },
+          create: { slug, name },
+        })
+      }
+    } catch (e) {
+      console.warn('Failed to upsert alliance', e)
+    }
 
     return res.status(200).json({ success: true, details })
   } catch (err: any) {
