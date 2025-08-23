@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const alliance = await prisma.alliance.findUnique({ where: { id: user.allianceId } })
       if (alliance) allianceSlug = alliance.slug
     }
-    return res.status(200).json({ ok: true, user: { email: user?.email, pnwLinked: !!user?.pnwApiKey, allianceSlug } })
+  return res.status(200).json({ ok: true, user: { email: user?.email, pnwLinked: !!user?.pnwApiKey, allianceSlug, allianceId: user?.allianceId ?? null } })
   } catch (err) {
     console.error('/api/user/me error', err)
     res.status(500).json({ ok: false })

@@ -20,6 +20,10 @@ async function fetchApiKeyDetails(apiKey: string) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  // accept POST for actual linking; accept GET for a lightweight info/debug response
+  if (req.method === 'GET') {
+    return res.status(200).json({ success: false, message: 'This endpoint accepts POST with { apiKey } to link PnW account.' })
+  }
   if (req.method !== 'POST') return res.status(405).json({ success: false, message: 'Method not allowed' })
 
   const { apiKey } = req.body || {}
@@ -32,6 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const { getServerSession } = await import('next-auth/next')
   const { authOptions } = await import('../auth/[...nextauth]')
   const session = (await getServerSession(req, res, authOptions as any)) as any
+  console.log('[pnw/link] incoming method=', req.method, 'sessionUser=', !!session?.user?.email)
   if (!session?.user?.email) return res.status(401).json({ success: false, message: 'Not authenticated' })
 
     // validate key by fetching the account details
@@ -41,6 +46,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     } catch (e: any) {
       return res.status(400).json({ success: false, message: 'Failed to validate API key: ' + (e.message || String(e)) })
     }
+
+  console.log('[pnw/link] fetched details for apiKey, nation=', details?.nation?.id, 'alliance_id=', details?.nation?.alliance_id)
 
     // Save key to user's record (encrypt at rest if secret provided)
     let stored = apiKey
