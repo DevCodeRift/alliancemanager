@@ -8,7 +8,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const session = (await getServerSession(req, res, authOptions as any)) as any
     if (!session?.user?.email) return res.status(401).json({ ok: false })
     const user = await prisma.user.findUnique({ where: { email: session.user.email } })
-    return res.status(200).json({ ok: true, user: { email: user?.email, pnwLinked: !!user?.pnwApiKey } })
+    let allianceSlug = null
+    if (user?.allianceId) {
+      const alliance = await prisma.alliance.findUnique({ where: { id: user.allianceId } })
+      if (alliance) allianceSlug = alliance.slug
+    }
+    return res.status(200).json({ ok: true, user: { email: user?.email, pnwLinked: !!user?.pnwApiKey, allianceSlug } })
   } catch (err) {
     console.error('/api/user/me error', err)
     res.status(500).json({ ok: false })

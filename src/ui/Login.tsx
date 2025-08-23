@@ -1,5 +1,6 @@
 import { signIn, signOut, useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
 
 export default function Login() {
   const { data: session, status } = useSession()
@@ -7,22 +8,34 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [details, setDetails] = useState<any | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [pnwLinked, setPnwLinked] = useState(false)
+
+  const router = useRouter()
 
   useEffect(() => {
+    // wait for an authenticated session to avoid 401 race
+    if (!session?.user) return
     let cancelled = false
     ;(async () => {
       try {
         const res = await fetch('/api/user/me')
         const j = await res.json()
-        if (!cancelled && j?.ok && j.user?.pnwLinked) {
-          setMessage('PnW key already linked')
+        if (!cancelled && j?.ok) {
+          if (j.user?.pnwLinked) {
+            setPnwLinked(true)
+            setMessage('PnW key already linked')
+            // If allianceSlug present, immediately redirect to members page using router
+            if (j.user?.allianceSlug) {
+              router.replace(`/${encodeURIComponent(j.user.allianceSlug)}/members`)
+            }
+          }
         }
       } catch (e) {
         // ignore
       }
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [session?.user])
 
   if (status === 'loading') {
     return <div className="auth-card">Loading…</div>
@@ -42,19 +55,24 @@ export default function Login() {
       if (!res.ok) {
         setMessage(json?.message || 'Failed to link key')
       } else {
-        setDetails(json.details || null)
-        setMessage('Linked successfully')
-        // redirect to alliance members page: prefer returned allianceSlug, otherwise build fallback from details
-        const slug = json.allianceSlug || (json.details?.nation ? (
-          (() => {
-            const pnwId = String(json.details.nation.alliance_id || '')
-            const rawName = json.details.nation.alliance_name || (pnwId ? `Alliance ${pnwId}` : '')
-            return rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || pnwId
-          })()
-        ) : null)
-        if (slug) {
-          window.location.href = `/${encodeURIComponent(slug)}/members`
-        }
+  setDetails(json.details || null)
+  setPnwLinked(true)
+  setMessage('Linked successfully')
+          // redirect to alliance members page: prefer returned allianceSlug
+          if (json.allianceSlug) {
+              router.replace(`/${encodeURIComponent(json.allianceSlug)}/members`)
+            } else {
+            // fallback: ask server for the user's alliance (resolved to slug)
+            try {
+              const me = await fetch('/api/user/me')
+              const meJ = await me.json()
+                if (meJ?.ok && meJ.user?.allianceSlug) {
+                  router.replace(`/${encodeURIComponent(meJ.user.allianceSlug)}/members`)
+                }
+            } catch (e) {
+              // ignore; stay on the page
+            }
+          }
       }
     } catch (e: any) {
       setMessage(e?.message || 'Network error')
@@ -106,6 +124,7 @@ export default function Login() {
                     const r = await fetch('/api/pnw/unlink', { method: 'POST' })
                     if (r.ok) {
                       setDetails(null)
+                      setPnwLinked(false)
                       setMessage('Unlinked')
                     } else {
                       setMessage('Failed to unlink')
