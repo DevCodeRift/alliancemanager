@@ -52,73 +52,96 @@ export default function MembersPage() {
   if (!alliance) return <div>Loading…</div>
 
   return (
-    <div style={{ padding: 24 }}>
-      <h2>{alliance} members</h2>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+    <div className="members-container">
+      <div className="members-header">
+        <div>
+          <div className="members-title">{alliance} members</div>
+          <div className="members-sub">Manage membership and verification for this alliance</div>
+        </div>
+        <div style={{ marginLeft: 'auto' }} className="count-badge">Total: {((data?.verified?.length ?? 0) + (data?.notVerified?.length ?? 0))}</div>
+      </div>
+
+      <div className="members-controls">
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 13 }}>Order</label>
+          <select value={order} onChange={(e) => setOrder(e.target.value as any)} style={{ padding: 8, borderRadius: 8 }}>
+            <option value="name">Name</option>
+            <option value="position">Alliance Position</option>
+            <option value="cities">City Count</option>
+          </select>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <label style={{ fontSize: 13 }}>Direction</label>
+          <select value={dir} onChange={(e) => setDir(e.target.value as any)} style={{ padding: 8, borderRadius: 8 }}>
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ marginRight: 8 }}>
-              <label style={{ fontSize: 13, marginRight: 6 }}>Order:</label>
-              <select value={order} onChange={(e) => setOrder(e.target.value as any)} style={{ padding: 6, borderRadius: 6 }}>
-                <option value="name">Name</option>
-                <option value="position">Alliance Position</option>
-                <option value="cities">City Count</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 13, marginRight: 6 }}>Direction:</label>
-              <select value={dir} onChange={(e) => setDir(e.target.value as any)} style={{ padding: 6, borderRadius: 6 }}>
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
-              </select>
-            </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input placeholder="Optional PnW API key (for position/cities sorting)" value={popKey} onChange={(e) => setPopKey(e.target.value)} style={{ width: 360, padding: 8, borderRadius: 6 }} />
-              <button className="discord-btn" onClick={async () => {
-                // refresh members with ordering
-                setMembersLoading(true)
-                try {
-                  const params = new URLSearchParams()
-                  if (order !== 'name') params.set('order', order)
-                  params.set('dir', dir)
-                  if (popKey) params.set('apiKey', popKey)
-                  const r = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
-                  const j = await r.json()
-                  if (j.ok) setData(j)
-                } finally { setMembersLoading(false) }
-              }}>{membersLoading ? 'Loading…' : 'Refresh'}</button>
-              <button className="discord-btn" onClick={handlePopulate} disabled={popLoading}>{popLoading ? 'Populating…' : 'Populate members'}</button>
-            </div>
-          </div>
+          <input placeholder="Optional PnW API key (for position/cities sorting)" value={popKey} onChange={(e) => setPopKey(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8 }} />
+        </div>
 
-          <div style={{ marginBottom: 12 }}>
-            {popResult && <div style={{ fontSize: 13 }}>{JSON.stringify(popResult)}</div>}
-          </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="discord-btn" onClick={async () => {
+            setMembersLoading(true)
+            try {
+              const params = new URLSearchParams()
+              if (order !== 'name') params.set('order', order)
+              params.set('dir', dir)
+              if (popKey) params.set('apiKey', popKey)
+              const r = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
+              const j = await r.json()
+              if (j.ok) setData(j)
+            } finally { setMembersLoading(false) }
+          }}>{membersLoading ? 'Loading…' : 'Refresh'}</button>
+          <button className="discord-btn" onClick={handlePopulate} disabled={popLoading}>{popLoading ? 'Populating…' : 'Populate members'}</button>
+        </div>
+      </div>
 
-          <h3>Verified ({data?.verified?.length ?? 0})</h3>
+      <div className="members-columns">
+        <div className="members-column members-panel">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontWeight: 800 }}>Verified</div>
+            <div className="count-badge">{data?.verified?.length ?? 0}</div>
+          </div>
           {data?.verified?.length ? (
-            <ul style={{ columns: 2 }}>{data.verified.map((u: any) => (
-              <li key={u.id} style={{ marginBottom: 6 }}>
-                <strong>{u.name ?? u.email}</strong>
-                {u.pnw?.leader_name && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{u.pnw?.leader_name} — {u.pnw?.nation_name}</div>}
-                {u.pnw && order === 'position' && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Position ID: {u.pnw?.alliance_position_id}</div>}
-                {u.pnw && order === 'cities' && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>Cities: {u.pnw?.num_cities}</div>}
-              </li>
-            ))}</ul>
+            <ul className="member-list">
+              {data.verified.map((u: any) => (
+                <li key={u.id} className="member-card">
+                  <div className="member-info">
+                    <div>
+                      <div className="member-name">{u.name ?? u.email}</div>
+                      <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {u.pnw && <div className="badge">{order === 'cities' ? `${u.pnw?.num_cities} cities` : u.pnw?.alliance_position_id ?? '—'}</div>}
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : (
             <div>No verified members</div>
           )}
         </div>
 
-        <div style={{ flex: 1 }}>
-          <h3>Not Verified ({data?.notVerified?.length ?? 0})</h3>
+        <div className="members-column members-panel">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ fontWeight: 800 }}>Not Verified</div>
+            <div className="count-badge">{data?.notVerified?.length ?? 0}</div>
+          </div>
           {data?.notVerified?.length ? (
-            <ul style={{ columns: 2 }}>{data.notVerified.map((u: any) => (
-              <li key={u.id} style={{ marginBottom: 6 }}>
-                <strong>{u.name ?? u.email}</strong>
-                {u.pnw?.leader_name && <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{u.pnw?.leader_name} — {u.pnw?.nation_name}</div>}
-              </li>
-            ))}</ul>
+            <ul className="member-list">
+              {data.notVerified.map((u: any) => (
+                <li key={u.id} className="member-card">
+                  <div>
+                    <div className="member-name">{u.name ?? u.email}</div>
+                    <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : (
             <div>No unverified members</div>
           )}
