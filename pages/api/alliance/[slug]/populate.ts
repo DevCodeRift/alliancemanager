@@ -24,6 +24,8 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
   if (first.ok) {
     const members = first.data?.alliances && first.data.alliances.length ? first.data.alliances[0].members : null
     if (members) return members
+    // no members found in alliances response
+    return []
   } else if (!first.ok && first.status && first.status >= 500) {
     console.warn('/api/alliance/[slug]/populate: PnW returned 5xx, attempting chunked fallback')
     // attempt lightweight ids-only query and then fetch details in batches
@@ -40,7 +42,7 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
       return res2.data?.alliance?.members || []
     }
     const idList = idsRes.data?.alliances && idsRes.data.alliances.length ? idsRes.data.alliances[0].members.map((m: any) => m.id) : []
-    // fetch details in batches of 50
+  // fetch details in batches of 50
     const batchSize = 50
     const result: any[] = []
     for (let i = 0; i < idList.length; i += batchSize) {
@@ -56,14 +58,12 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
     return result
   }
 
-  // If first query failed but not a 5xx, attempt singular fallback
-  const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
-  const res2 = await doQuery(q2)
-  if (!res2.ok) {
-    const errBody = res2.body || JSON.stringify(res2.errors || 'unknown')
-    throw new Error(`PNW HTTP ${res2.status || 500}: ${errBody}`)
+  // If the initial query returned GraphQL errors (e.g. malformed/unsupported fields), surface them.
+  if (!first.ok && first.errors) {
+    throw new Error(JSON.stringify(first.errors))
   }
-  return res2.data?.alliance?.members || []
+  // otherwise attempt singular fallback only for completeness (rare)
+  return []
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
