@@ -1,26 +1,22 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import prisma from '../../../src/lib/prisma'
+import { encryptText } from '../../../src/lib/crypto'
 
-type Data = { success: boolean; message?: string; nations?: any[] }
+type Data = { success: boolean; message?: string; details?: any }
 
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
-async function fetchNations(apiKey: string) {
-  const query = `query { nation { id nation_name leader_name alliance_id score last_active date } }`
+async function fetchApiKeyDetails(apiKey: string) {
+  const query = `query { me { key requests max_requests permission_bits nation { id nation_name leader_name alliance_id score last_active date money coal oil uranium iron bauxite lead gasoline munitions steel aluminum food credits num_cities cities { id } } } }`
   const res = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   })
-
   if (!res.ok) throw new Error(`PNW API HTTP ${res.status}`)
   const json = await res.json()
   if (json.errors) throw new Error('PNW API error: ' + JSON.stringify(json.errors))
-  // Some responses return `data.nation` as either an object or null
-  const nation = json.data?.nation || null
-  // The account endpoint returns a single nation (the account's nation)
-  if (!nation) return []
-  return [nation]
+  return json.data?.me || null
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
@@ -38,18 +34,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   const session = (await getServerSession(req, res, authOptions as any)) as any
   if (!session?.user?.email) return res.status(401).json({ success: false, message: 'Not authenticated' })
 
-    // validate key by fetching nation info
-    let nations
+    // validate key by fetching the account details
+    let details
     try {
-      nations = await fetchNations(apiKey)
+      details = await fetchApiKeyDetails(apiKey)
     } catch (e: any) {
       return res.status(400).json({ success: false, message: 'Failed to validate API key: ' + (e.message || String(e)) })
     }
 
-    // Save key to user's record
-  const user = await prisma.user.update({ where: { email: session.user.email }, data: { pnwApiKey: apiKey } })
+    // Save key to user's record (encrypt at rest if secret provided)
+    let stored = apiKey
+    try {
+      const secret = process.env.STACK_SECRET_SERVER_KEY
+      if (secret) {
+        stored = encryptText(apiKey, secret)
+      }
+    } catch (e) {
+      console.warn('Failed to encrypt PnW API key, storing raw')
+    }
+    const user = await prisma.user.update({ where: { email: session.user.email }, data: { pnwApiKey: stored } })
 
-    return res.status(200).json({ success: true, nations })
+    return res.status(200).json({ success: true, details })
   } catch (err: any) {
     console.error('[pnw/link] error', err)
     return res.status(500).json({ success: false, message: 'Internal server error' })
