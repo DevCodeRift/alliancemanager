@@ -44,6 +44,10 @@ export default function Login() {
       } else {
         setDetails(json.details || null)
         setMessage('Linked successfully')
+        if (json.allianceSlug) {
+          // redirect to alliance members page
+          window.location.href = `/${encodeURIComponent(json.allianceSlug)}/members`
+        }
       }
     } catch (e: any) {
       setMessage(e?.message || 'Network error')

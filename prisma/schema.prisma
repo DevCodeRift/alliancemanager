@@ -64,6 +64,7 @@ model VerificationToken {
 model Alliance {
   id          String  @id @default(cuid())
   slug        String  @unique
+  pnwAllianceId Int?  @unique
   name        String
   whitelisted Boolean @default(false)
   ownerId     String?  @unique

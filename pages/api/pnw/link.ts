@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import prisma from '../../../src/lib/prisma'
 import { encryptText } from '../../../src/lib/crypto'
 
-type Data = { success: boolean; message?: string; details?: any }
+type Data = { success: boolean; message?: string; details?: any; allianceSlug?: string | null }
 
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
@@ -64,22 +64,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       },
     })
 
-    // ensure Alliance record exists (use alliance_id as slug)
+    // ensure Alliance record exists: use human slug from alliance_name (fallback to numeric id)
+    let allianceSlug: string | null = null
+    let pnwId: number | null = null
     try {
       if (details?.nation?.alliance_id) {
-        const slug = String(details.nation.alliance_id)
-        const name = details.nation.alliance_name || `Alliance ${slug}`
+        pnwId = Number(details.nation.alliance_id)
+        const rawName = details.nation.alliance_name || `Alliance ${pnwId}`
+        const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || String(pnwId)
+        allianceSlug = slug
         await prisma.alliance.upsert({
-          where: { slug },
-          update: { name },
-          create: { slug, name },
+          where: { pnwAllianceId: pnwId },
+          update: { name: rawName, slug, pnwAllianceId: pnwId },
+          create: { name: rawName, slug, pnwAllianceId: pnwId },
         })
+
+        // resolve the alliance record and set the user's allianceId to the internal Alliance.id
+        const allianceRecord = await prisma.alliance.findUnique({ where: { pnwAllianceId: pnwId } })
+        if (allianceRecord) {
+          await prisma.user.update({
+            where: { email: session.user.email },
+            data: { allianceId: allianceRecord.id },
+          })
+        }
       }
     } catch (e) {
-      console.warn('Failed to upsert alliance', e)
+      console.warn('Failed to upsert alliance or set user allianceId', e)
     }
 
-    return res.status(200).json({ success: true, details })
+    return res.status(200).json({ success: true, details, allianceSlug })
   } catch (err: any) {
     console.error('[pnw/link] error', err)
     return res.status(500).json({ success: false, message: 'Internal server error' })
