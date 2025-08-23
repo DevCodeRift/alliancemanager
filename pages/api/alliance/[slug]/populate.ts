@@ -9,12 +9,14 @@ async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
   const q = `query { alliances(ids: [${pnwAllianceId}]) { members { id nation_name leader_name alliance_id } } }`
 
   async function doQuery(query: string) {
+    console.log('/api/alliance/[slug]/populate doQuery ->', query)
     const r = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+    const text = await r.text().catch(() => '')
+    console.log(`/api/alliance/[slug]/populate PNW response status=${r.status} body=${text}`)
     if (!r.ok) {
-      const bodyText = await r.text().catch(() => '')
-      return { ok: false, status: r.status, body: bodyText }
+      return { ok: false, status: r.status, body: text }
     }
-    const parsed = await r.json()
+    const parsed = JSON.parse(text)
     if (parsed.errors) return { ok: false, status: 200, errors: parsed.errors }
     return { ok: true, data: parsed.data }
   }
