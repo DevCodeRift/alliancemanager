@@ -91,3 +91,15 @@ body {
   --text: #e6eef8;
   --muted: #98a8c6;
 }
+
+.discord-btn {
+  background: linear-gradient(90deg, #5865F2, #4752C4);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(72,64,255,0.14);
+}
+.discord-btn:hover { filter: brightness(1.06) }
