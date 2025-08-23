@@ -7,40 +7,63 @@ const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 async function fetchAllianceMembers(pnwAllianceId: number, apiKey: string) {
   // Fetch alliance members via PnW GraphQL. Use `alliances` root field (API expects plural).
   const q = `query { alliances(ids: [${pnwAllianceId}]) { members { id nation_name leader_name alliance_id } } }`
-  const res = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: q }),
-  })
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => '')
-    console.error(`/api/alliance/[slug]/populate PNW error status=${res.status} body=${bodyText}`)
-    throw new Error(`PNW HTTP ${res.status}: ${bodyText}`)
-  }
-  const j = await res.json()
-  if (j.errors) {
-    console.error('/api/alliance/[slug]/populate PNW graphql errors', JSON.stringify(j.errors))
-    throw new Error(JSON.stringify(j.errors))
-  }
-  // data may be under data.alliances[0].members
-  const members = j.data?.alliances && j.data.alliances.length ? j.data.alliances[0].members : null
-  if (!members) {
-    // fallback: try singular field
-    const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
-    const res2 = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q2 }) })
-    if (!res2.ok) {
-      const body2 = await res2.text().catch(() => '')
-      console.error(`/api/alliance/[slug]/populate PNW fallback error status=${res2.status} body=${body2}`)
-      throw new Error(`PNW HTTP ${res2.status}: ${body2}`)
+
+  async function doQuery(query: string) {
+    const r = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+    if (!r.ok) {
+      const bodyText = await r.text().catch(() => '')
+      return { ok: false, status: r.status, body: bodyText }
     }
-    const j2 = await res2.json()
-    if (j2.errors) {
-      console.error('/api/alliance/[slug]/populate PNW fallback graphql errors', JSON.stringify(j2.errors))
-      throw new Error(JSON.stringify(j2.errors))
-    }
-    return j2.data?.alliance?.members || []
+    const parsed = await r.json()
+    if (parsed.errors) return { ok: false, status: 200, errors: parsed.errors }
+    return { ok: true, data: parsed.data }
   }
-  return members
+
+  // Try full members query first
+  const first = await doQuery(q)
+  if (first.ok) {
+    const members = first.data?.alliances && first.data.alliances.length ? first.data.alliances[0].members : null
+    if (members) return members
+  } else if (!first.ok && first.status && first.status >= 500) {
+    console.warn('/api/alliance/[slug]/populate: PnW returned 5xx, attempting chunked fallback')
+    // attempt lightweight ids-only query and then fetch details in batches
+    const idsQuery = `query { alliances(ids: [${pnwAllianceId}]) { members { id } } }`
+    const idsRes = await doQuery(idsQuery)
+    if (!idsRes.ok) {
+      // try singular fallback
+      const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
+      const res2 = await doQuery(q2)
+      if (!res2.ok) {
+        const errBody = res2.body || JSON.stringify(res2.errors || 'unknown')
+        throw new Error(`PNW HTTP ${res2.status || 500}: ${errBody}`)
+      }
+      return res2.data?.alliance?.members || []
+    }
+    const idList = idsRes.data?.alliances && idsRes.data.alliances.length ? idsRes.data.alliances[0].members.map((m: any) => m.id) : []
+    // fetch details in batches of 50
+    const batchSize = 50
+    const result: any[] = []
+    for (let i = 0; i < idList.length; i += batchSize) {
+      const chunk = idList.slice(i, i + batchSize)
+      const detailsQuery = `query { nations(ids: [${chunk.join(',')}]) { id nation_name leader_name alliance_id } }`
+      const dres = await doQuery(detailsQuery)
+      if (!dres.ok) {
+        console.error('Chunk details fetch failed', dres)
+        continue
+      }
+      if (dres.data?.nations) result.push(...dres.data.nations)
+    }
+    return result
+  }
+
+  // If first query failed but not a 5xx, attempt singular fallback
+  const q2 = `query { alliance(id: ${pnwAllianceId}) { members { id nation_name leader_name alliance_id } } }`
+  const res2 = await doQuery(q2)
+  if (!res2.ok) {
+    const errBody = res2.body || JSON.stringify(res2.errors || 'unknown')
+    throw new Error(`PNW HTTP ${res2.status || 500}: ${errBody}`)
+  }
+  return res2.data?.alliance?.members || []
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
