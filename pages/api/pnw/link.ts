@@ -52,7 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     } catch (e) {
       console.warn('Failed to encrypt PnW API key, storing raw')
     }
-    const user = await prisma.user.update({ where: { email: session.user.email }, data: { pnwApiKey: stored } })
+    const user = await prisma.user.update({
+      where: { email: session.user.email },
+      data: {
+        pnwApiKey: stored,
+        ...(details?.nation?.leader_name ? { name: details.nation.leader_name } : {}),
+      },
+    })
 
     return res.status(200).json({ success: true, details })
   } catch (err: any) {
