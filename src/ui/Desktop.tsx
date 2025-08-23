@@ -1,42 +1,24 @@
-import { useState } from 'react'
 import Window from './Window'
-import Dock from './Dock'
 import Login from './Login'
-import Signup from './Signup'
-import ThemeSwitcher from './ThemeSwitcher'
+import Dock from './Dock'
 
 export default function Desktop() {
-  const [open, setOpen] = useState<'login' | 'signup' | 'themes' | null>(null)
-
+  // Desktop always shows the login window centered
   return (
     <div className="desktop">
       <div className="menu-bar">Alliance Manager OS</div>
 
-      <div className="desktop-grid">
-        <button className="icon" onClick={() => setOpen('login')}>Login</button>
-        <button className="icon" onClick={() => setOpen('signup')}>Signup</button>
-        <button className="icon" onClick={() => setOpen('themes')}>Themes</button>
+      <div style={{ padding: 20 }} className="desktop-grid">
+        {/* Empty desktop: focused on the central login window */}
       </div>
 
       <Dock />
 
-      {open === 'login' && (
-        <Window title="Login" onClose={() => setOpen(null)}>
-          <Login onSwap={() => setOpen('signup')} onSuccess={() => setOpen(null)} />
+      <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+        <Window title="Alliance Manager" onClose={() => {}}>
+          <Login />
         </Window>
-      )}
-
-        {open === 'themes' && (
-          <Window title="Themes" onClose={() => setOpen(null)}>
-            <ThemeSwitcher onClose={() => setOpen(null)} />
-          </Window>
-        )}
-
-      {open === 'signup' && (
-        <Window title="Signup" onClose={() => setOpen(null)}>
-          <Signup onSwap={() => setOpen('login')} onSuccess={() => setOpen(null)} />
-        </Window>
-      )}
+      </div>
     </div>
   )
 }
