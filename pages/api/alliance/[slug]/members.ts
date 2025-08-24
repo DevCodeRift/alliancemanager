@@ -43,6 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: m.pnwNationId,
       nation_name: m.pnwNationName,
       leader_name: m.pnwLeaderName,
+      alliance_position: m.pnwAlliancePositionName ?? null,
       alliance_position_id: m.pnwAlliancePositionId,
       alliance_position_info: m.pnwAlliancePositionName ? { id: m.pnwAlliancePositionId, name: m.pnwAlliancePositionName } : null,
       num_cities: m.pnwNumCities,
