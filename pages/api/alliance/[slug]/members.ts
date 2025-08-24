@@ -34,22 +34,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (alliance.pnwAllianceId) {
     orClauses.push({ allianceId: String(alliance.pnwAllianceId) })
   }
-  const members = await prisma.user.findMany({ where: { OR: orClauses } })
+  // include role assignments so we can surface role names in the UI
+  const members = await prisma.user.findMany({ where: { OR: orClauses }, include: { roles: { include: { role: true } } } })
 
   // map DB users to objects and include persisted PnW snapshot if present
-  let enriched: any[] = (members as any[]).map((m: any) => ({
-    ...m,
-    pnw: m.pnwSnapshot || (m.pnwNationId ? {
-      id: m.pnwNationId,
-      nation_name: m.pnwNationName,
-      leader_name: m.pnwLeaderName,
-      alliance_position: m.pnwAlliancePositionName ?? null,
-      alliance_position_id: m.pnwAlliancePositionId,
-      alliance_position_info: m.pnwAlliancePositionName ? { id: m.pnwAlliancePositionId, name: m.pnwAlliancePositionName } : null,
-      num_cities: m.pnwNumCities,
-      last_active: m.pnwLastActive ? (new Date(m.pnwLastActive)).toISOString() : null
-    } : null)
-  }))
+  let enriched: any[] = (members as any[]).map((m: any) => {
+    const assignedRoles = (m.roles || []).map((r: any) => r.role?.name).filter(Boolean)
+    const allianceRoleLabel = m.allianceRole === 1 ? 'Applicant' : (m.allianceRole === 2 ? 'Member' : (m.allianceRole === 5 ? 'Leader' : (m.allianceRole ? `Role ${m.allianceRole}` : null)))
+    return {
+      ...m,
+      assignedRoles,
+      allianceRoleLabel,
+      pnw: m.pnwSnapshot || (m.pnwNationId ? {
+        id: m.pnwNationId,
+        nation_name: m.pnwNationName,
+        leader_name: m.pnwLeaderName,
+        alliance_position: m.pnwAlliancePositionName ?? null,
+        alliance_position_id: m.pnwAlliancePositionId,
+        alliance_position_info: m.pnwAlliancePositionName ? { id: m.pnwAlliancePositionId, name: m.pnwAlliancePositionName } : null,
+        num_cities: m.pnwNumCities,
+        last_active: m.pnwLastActive ? (new Date(m.pnwLastActive)).toISOString() : null
+      } : null)
+    }
+  })
 
   // If ordering requires PnW info (position or cities) and an apiKey is supplied, fetch nations and attach
   if (order && (order === 'position' || order === 'cities') && apiKey) {

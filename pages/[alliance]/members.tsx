@@ -125,23 +125,44 @@ export default function MembersPage() {
           </div>
           {data?.verified?.length ? (
             <ul className="member-list">
-              {data.verified.map((u: any) => (
-                <li key={u.id} className="member-card">
-                  <div className="member-info">
-                    <div>
-                      <div className="member-name">{u.name ?? u.email}</div>
-                      <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
-                      {u.pnw?.alliance_position_info?.name && <div className="member-meta">Position: {u.pnw?.alliance_position_info?.name}</div>}
-                      {u.pnw?.seniority != null && <div className="member-meta">Seniority: {u.pnw?.seniority}</div>}
-                      {u.pnw?.last_active && <div className="member-meta">Last active: {new Date(u.pnw?.last_active).toLocaleString()}</div>}
-                      {u.pnw?.num_cities != null && <div className="member-meta">Cities: {u.pnw?.num_cities}</div>}
+              {data.verified.map((u: any) => {
+                const p = u.pnw || {}
+                const displayName = u.name || u.email || p.nation_name || p.leader_name || `PNW#${p.id ?? u.pnwNationId ?? 'unknown'}`
+                const leader = p.leader_name || u.pnwLeaderName || ''
+                const nation = p.nation_name || u.pnwNationName || ''
+                const positionName = p.alliance_position_info?.name || p.alliance_position || u.pnwAlliancePositionName || null
+                const seniority = p.alliance_seniority ?? p.seniority ?? u.pnwAllianceSeniority ?? null
+                const lastActiveRaw = p.last_active ?? u.pnwLastActive ?? null
+                let lastActiveDisplay: string | null = null
+                try {
+                  if (lastActiveRaw) {
+                    const d = typeof lastActiveRaw === 'string' || typeof lastActiveRaw === 'number' ? new Date(lastActiveRaw) : null
+                    if (d && !isNaN(d.getTime())) lastActiveDisplay = d.toLocaleString()
+                  }
+                } catch (e) {
+                  lastActiveDisplay = null
+                }
+                const cities = p.num_cities ?? u.pnwNumCities ?? null
+                return (
+                  <li key={u.id} className="member-card">
+        <div className="member-info">
+                      <div>
+                        <div className="member-name">{displayName}</div>
+          <div className="member-meta">{leader ? `${leader} — ${nation}` : (nation || '')}</div>
+          {u.assignedRoles?.length ? <div className="member-meta">Roles: {u.assignedRoles.join(', ')}</div> : null}
+          {u.allianceRoleLabel ? <div className="member-meta">Alliance: {u.allianceRoleLabel}</div> : null}
+                        {positionName && <div className="member-meta">Position: {positionName}</div>}
+                        {seniority != null && <div className="member-meta">Seniority: {seniority}</div>}
+                        {lastActiveDisplay && <div className="member-meta">Last active: {lastActiveDisplay}</div>}
+                        {cities != null && <div className="member-meta">Cities: {cities}</div>}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    {u.pnw && <div className="badge">{order === 'cities' ? `${u.pnw?.num_cities} cities` : (u.pnw?.alliance_position_info?.name || u.pnw?.alliance_position_id || '—')}</div>}
-                  </div>
-                </li>
-              ))}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div className="badge">{order === 'cities' ? `${cities ?? '—'} cities` : (positionName || (p.alliance_position_id ?? u.pnwAlliancePositionId) || '—')}</div>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <div>No verified members</div>
@@ -155,14 +176,22 @@ export default function MembersPage() {
           </div>
           {data?.notVerified?.length ? (
             <ul className="member-list">
-              {data.notVerified.map((u: any) => (
-                <li key={u.id} className="member-card">
-                  <div>
-                    <div className="member-name">{u.name ?? u.email}</div>
-                    <div className="member-meta">{u.pnw?.leader_name ? `${u.pnw?.leader_name} — ${u.pnw?.nation_name}` : ''}</div>
-                  </div>
-                </li>
-              ))}
+              {data.notVerified.map((u: any) => {
+                const p = u.pnw || {}
+                const displayName = u.name || u.email || p.nation_name || p.leader_name || `PNW#${p.id ?? u.pnwNationId ?? 'unknown'}`
+                const leader = p.leader_name || u.pnwLeaderName || ''
+                const nation = p.nation_name || u.pnwNationName || ''
+                return (
+                  <li key={u.id} className="member-card">
+                    <div>
+                          <div className="member-name">{displayName}</div>
+                          <div className="member-meta">{leader ? `${leader} — ${nation}` : (nation || '')}</div>
+                          {u.assignedRoles?.length ? <div className="member-meta">Roles: {u.assignedRoles.join(', ')}</div> : null}
+                          {u.allianceRoleLabel ? <div className="member-meta">Alliance: {u.allianceRoleLabel}</div> : null}
+                        </div>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <div>No unverified members</div>
