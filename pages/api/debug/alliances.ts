@@ -21,6 +21,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (dbErr: any) {
       console.error('/api/debug/alliances prisma error', dbErr)
       const wantDebug = req.query?.debug === '1' || isLocalDev
+      // If the error is due to the new `modules` column not existing in the DB, fallback to a raw query
+      const msg: string = String(dbErr?.message || '')
+      if (msg.includes('does not exist') || msg.includes('does not exist in the current database')) {
+        try {
+          // raw query selecting the existing Alliance columns (DB column naming may be snake_case)
+          const raw = await prisma.$queryRaw<any[]>`SELECT id, slug, pnw_alliance_id as "pnwAllianceId", name, whitelisted, owner_id as "ownerId" FROM "Alliance" ORDER BY slug`
+          return res.json({ ok: true, count: raw.length, alliances: raw })
+        } catch (rawErr: any) {
+          console.error('/api/debug/alliances raw fallback error', rawErr)
+          if (wantDebug) return res.status(500).json({ ok: false, message: rawErr?.message, name: rawErr?.name, stack: rawErr?.stack })
+          return res.status(500).json({ ok: false, message: 'Database error (fallback failed)' })
+        }
+      }
       if (wantDebug) return res.status(500).json({ ok: false, message: dbErr?.message, name: dbErr?.name, stack: dbErr?.stack })
       return res.status(500).json({ ok: false, message: 'Database error' })
     }
