@@ -78,6 +78,8 @@ model Alliance {
   pnwAllianceId Int?  @unique
   name        String
   whitelisted Boolean @default(false)
+  // JSON object of module keys the alliance is granted, e.g. { "war": true, "economy": false }
+  modules     Json?
   ownerId     String?  @unique
   owner       User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
   members     User[]  @relation("AllianceMembers")

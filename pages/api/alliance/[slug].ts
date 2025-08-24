@@ -36,6 +36,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await prisma.alliance.update({ where: { slug }, data: { whitelisted: !!whitelisted } })
       return res.json({ ok: true })
     }
+    if (action === 'setModules') {
+      const { modules } = req.body || {}
+      // modules should be an object mapping module keys to booleans
+      // cast to any because Prisma client types may be out of sync in dev
+      await prisma.alliance.update({ where: { slug }, data: ( { modules: modules || {} } as any) })
+      return res.json({ ok: true })
+    }
   }
 
   res.status(400).json({ ok: false, message: 'Bad request' })
