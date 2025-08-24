@@ -199,14 +199,23 @@ export default function MembersPage() {
                 const displayName = u.name || u.email || p.nation_name || p.leader_name || `PNW#${p.id ?? u.pnwNationId ?? 'unknown'}`
                 const leader = p.leader_name || u.pnwLeaderName || ''
                 const nation = p.nation_name || u.pnwNationName || ''
+                const positionName = p.alliance_position_info?.name || p.alliance_position || u.pnwAlliancePositionName || null
+                const seniority = p.alliance_seniority ?? p.seniority ?? u.pnwAllianceSeniority ?? null
+                const cities = p.num_cities ?? u.pnwNumCities ?? null
                 return (
                   <li key={u.id} className="member-card">
                     <div>
-                          <div className="member-name">{displayName}</div>
-                          <div className="member-meta">{leader ? `${leader} — ${nation}` : (nation || '')}</div>
-                          {u.assignedRoles?.length ? <div className="member-meta">Roles: {u.assignedRoles.join(', ')}</div> : null}
-                          {u.allianceRoleLabel ? <div className="member-meta">Alliance: {u.allianceRoleLabel}</div> : null}
-                        </div>
+                      <div className="member-name">{displayName}</div>
+                      <div className="member-meta">{leader ? `${leader} — ${nation}` : (nation || '')}</div>
+                      {positionName && <div className="member-meta">Position: {positionName}</div>}
+                      {seniority != null && <div className="member-meta">Seniority: {seniority}</div>}
+                      {cities != null && <div className="member-meta">Cities: {cities}</div>}
+                      {u.assignedRoles?.length ? <div className="member-meta">Roles: {u.assignedRoles.join(', ')}</div> : null}
+                      {u.allianceRoleLabel ? <div className="member-meta">Alliance: {u.allianceRoleLabel}</div> : null}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div className="badge">{order === 'cities' ? `${cities ?? '—'} cities` : (positionName || (p.alliance_position_id ?? u.pnwAlliancePositionId) || '—')}</div>
+                    </div>
                   </li>
                 )
               })}
