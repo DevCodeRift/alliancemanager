@@ -15,8 +15,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } else {
       if (session.user.email !== adminEmail && !isLocalDev) return res.status(403).json({ ok: false, message: 'Forbidden' })
     }
-    const list = await prisma.alliance.findMany({ orderBy: { slug: 'asc' } }) as any
-    return res.json({ ok: true, count: list.length, alliances: list })
+    try {
+      const list = await prisma.alliance.findMany({ orderBy: { slug: 'asc' } }) as any
+      return res.json({ ok: true, count: list.length, alliances: list })
+    } catch (dbErr: any) {
+      console.error('/api/debug/alliances prisma error', dbErr)
+      const wantDebug = req.query?.debug === '1' || isLocalDev
+      if (wantDebug) return res.status(500).json({ ok: false, message: dbErr?.message, name: dbErr?.name, stack: dbErr?.stack })
+      return res.status(500).json({ ok: false, message: 'Database error' })
+    }
   } catch (err: any) {
     console.error('/api/debug/alliances error', err)
     return res.status(500).json({ ok: false, message: err?.message || 'Error' })
