@@ -11,6 +11,8 @@ export default function MembersPage() {
   const [order, setOrder] = useState<'name' | 'position' | 'cities'>('name')
   const [dir, setDir] = useState<'asc' | 'desc'>('asc')
   const [membersLoading, setMembersLoading] = useState(false)
+  const [debugOpen, setDebugOpen] = useState(false)
+  const [apiJson, setApiJson] = useState<any | null>(null)
 
   useEffect(() => {
     if (!alliance) return
@@ -85,6 +87,22 @@ export default function MembersPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="discord-btn" onClick={async () => {
+            // manual fetch for debugging the API
+            try {
+              const params = new URLSearchParams()
+              if (order !== 'name') params.set('order', order)
+              params.set('dir', dir)
+              const r = await fetch(`/api/alliance/${encodeURIComponent(String(alliance))}/members?${params.toString()}`)
+              const j = await r.json()
+              setApiJson(j)
+              setDebugOpen(true)
+            } catch (e) {
+              setApiJson({ ok: false, error: String(e) })
+              setDebugOpen(true)
+            }
+          }}>Fetch API JSON</button>
+          <button className="discord-btn" onClick={() => setDebugOpen((s) => !s)}>{debugOpen ? 'Hide debug' : 'Show raw data'}</button>
           <button className="discord-btn" onClick={async () => {
             setMembersLoading(true)
             try {
@@ -198,6 +216,12 @@ export default function MembersPage() {
           )}
         </div>
       </div>
+      {debugOpen && (
+        <div style={{ marginTop: 18, padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.02)', fontSize: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Raw API JSON</div>
+          <pre style={{ maxHeight: 300, overflow: 'auto', whiteSpace: 'pre-wrap' }}>{apiJson ? JSON.stringify(apiJson, null, 2) : 'No JSON fetched yet'}</pre>
+        </div>
+      )}
     </div>
   )
 }
