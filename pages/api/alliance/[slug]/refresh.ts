@@ -59,6 +59,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ids = (members as any[]).map((m: any) => Number(m.pnwNationId)).filter(Boolean) as number[]
   if (!ids.length) return res.json({ ok: true, refreshed: 0 })
 
+  const debug = req.query?.debug === '1' || (req.body && req.body.debug === true)
+
   try {
     const nations = await fetchNationsByIds(ids, apiKey)
     const byId = new Map(nations.map((n: any) => [Number(n.id), n]))
@@ -92,6 +94,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } })
       updated++
     }
+    // if debug requested, return extra diagnostic info
+    if (debug) {
+      const fetchedIds = Array.from(byId.keys())
+      const missing = ids.filter((i) => !byId.has(i))
+      return res.json({ ok: true, refreshed: updated, fetched: fetchedIds.length, fetchedIds, missing })
+    }
+
     return res.json({ ok: true, refreshed: updated })
   } catch (err: any) {
     console.error('/api/alliance/[slug]/refresh error', err)
