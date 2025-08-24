@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 
 export default function WebsiteAdmin() {
+  const { data: session } = useSession()
   const [alliances, setAlliances] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
+  // default admin email fallback
+  const ADMIN_EMAIL = process.env.NEXT_PUBLIC_SITE_ADMIN_EMAIL || 'praesultv@gmail.com'
+
   useEffect(() => {
+    if (!session || !session.user) return
+    if (session.user.email !== ADMIN_EMAIL) return
     ;(async () => {
       setLoading(true)
       try {
@@ -13,7 +20,7 @@ export default function WebsiteAdmin() {
         if (j.ok) setAlliances(j.alliances)
       } finally { setLoading(false) }
     })()
-  }, [])
+  }, [session])
 
   async function toggleWhitelist(slug: string, value: boolean) {
     await fetch(`/api/alliance/${encodeURIComponent(slug)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'setWhitelist', whitelisted: value }) })
@@ -26,6 +33,24 @@ export default function WebsiteAdmin() {
   }
 
   const moduleKeys = ['war','membership','economy','administrative','recruitment','training','community']
+
+  if (!session || !session.user) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h2>Website Administration</h2>
+        <p>You must sign in to view this page.</p>
+      </div>
+    )
+  }
+
+  if (session.user.email !== ADMIN_EMAIL) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h2>Website Administration</h2>
+        <p style={{ color: 'var(--muted)' }}>You are not authorized to view this page.</p>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: 24 }}>
