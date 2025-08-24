@@ -34,12 +34,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (alliance.pnwAllianceId) {
     orClauses.push({ allianceId: String(alliance.pnwAllianceId) })
   }
-  // include role assignments so we can surface role names in the UI
+  // include role relations on the user, but also fetch UserRole rows explicitly
   const members = await prisma.user.findMany({ where: { OR: orClauses }, include: { roles: { include: { role: true } } } })
+
+  // fetch UserRole assignments explicitly in case the user.roles relation is not populated
+  const userIds = members.map((m: any) => m.id)
+  const roleAssignments = userIds.length ? await prisma.userRole.findMany({ where: { userId: { in: userIds } }, include: { role: true } }) : []
+  const rolesByUser: Record<string, string[]> = {}
+  for (const ra of roleAssignments) {
+    if (!rolesByUser[ra.userId]) rolesByUser[ra.userId] = []
+    if (ra.role && ra.role.name) rolesByUser[ra.userId].push(ra.role.name)
+  }
 
   // map DB users to objects and include persisted PnW snapshot if present
   let enriched: any[] = (members as any[]).map((m: any) => {
     const assignedRoles = (m.roles || []).map((r: any) => r.role?.name).filter(Boolean)
+      .concat(rolesByUser[m.id] || []).filter(Boolean)
     const allianceRoleLabel = m.allianceRole === 1 ? 'Applicant' : (m.allianceRole === 2 ? 'Member' : (m.allianceRole === 5 ? 'Leader' : (m.allianceRole ? `Role ${m.allianceRole}` : null)))
     return {
       ...m,
