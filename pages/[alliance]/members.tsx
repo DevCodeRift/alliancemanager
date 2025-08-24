@@ -27,7 +27,7 @@ export default function MembersPage() {
         setMembersLoading(false)
       }
     })()
-  }, [alliance])
+  }, [alliance, order, dir])
 
   async function handlePopulate() {
     setPopLoading(true)
