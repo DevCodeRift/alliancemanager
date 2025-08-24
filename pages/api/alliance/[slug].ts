@@ -22,7 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const alliance = await prisma.alliance.findUnique({ where: { slug } })
   if (!alliance) return res.status(404).json({ ok: false, message: 'Not found' })
 
-  const isOwner = alliance.ownerId === user.id || process.env.SITE_ADMIN_EMAIL === session.user.email
+  const adminEmail = process.env.SITE_ADMIN_EMAIL || process.env.NEXT_PUBLIC_SITE_ADMIN_EMAIL || 'praesultv@gmail.com'
+  const isOwner = alliance.ownerId === user.id || adminEmail === session.user.email
 
   if (!isOwner) return res.status(403).json({ ok: false, message: 'Forbidden' })
 
