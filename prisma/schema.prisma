@@ -106,3 +106,44 @@ model UserRole {
 
   @@unique([userId, roleId])
 }
+
+model War {
+  id          String   @id @default(cuid())
+  pnwWarId    Int      @unique
+  allianceId  String
+  attackerId  Int      // PnW nation ID
+  defenderId  Int      // PnW nation ID
+  attackerName String?
+  defenderName String?
+  warType     String?  // "RAID", "ORDINARY", etc.
+  groundControl String? // "ATTACKER", "DEFENDER", "NONE"
+  airSuperiority String? // "ATTACKER", "DEFENDER", "NONE"
+  navalBlockade String? // "ATTACKER", "DEFENDER", "NONE"
+  winner      Int?     // 0 = ongoing, 1 = attacker, 2 = defender
+  turnEnds    DateTime?
+  warStarted  DateTime
+  warEnded    DateTime?
+  isDefensive Boolean  // true if alliance member is defending
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  alerts   WarAlert[]
+
+  @@index([allianceId, isActive])
+  @@index([pnwWarId])
+}
+
+model WarAlert {
+  id        String   @id @default(cuid())
+  warId     String
+  alertType String   // "NEW_DEFENSIVE_WAR", "WAR_ENDED", etc.
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  war War @relation(fields: [warId], references: [id], onDelete: Cascade)
+
+  @@index([warId])
+}
