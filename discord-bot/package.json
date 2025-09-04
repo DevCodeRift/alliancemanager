@@ -1,0 +1,21 @@
+{
+  "name": "alliance-manager-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for Alliance Manager - provides raid alerts and alliance management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": ["discord", "bot", "alliance", "politics-and-war"],
+  "author": "Alliance Manager",
+  "license": "MIT"
+}

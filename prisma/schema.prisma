@@ -75,6 +75,12 @@ model Alliance {
   ownerId       String? @unique
   pnwAllianceId Int?    @unique
   modules       Json?
+  // Discord bot configuration
+  discordGuildId          String?
+  discordRaidChannelId    String?
+  discordGeneralChannelId String?
+  discordBotEnabled       Boolean @default(false)
+  discordSettings         Json?   // Additional Discord settings
   owner         User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
   roles         Role[]
   members       User[]  @relation("AllianceMembers")
