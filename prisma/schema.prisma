@@ -8,47 +8,47 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  pnwApiKey     String?   @db.Text
-  pnwNationId   Int?      @unique
+  id                      String     @id @default(cuid())
+  name                    String?
+  email                   String?    @unique
+  emailVerified           DateTime?
+  image                   String?
+  pnwApiKey               String?    @db.Text
+  pnwNationId             Int?       @unique
   // persisted Politics & War snapshot fields
-  pnwSnapshot   Json?
-  pnwLastSynced DateTime?
-  pnwLastActive DateTime?
-  pnwNumCities  Int?
-  pnwAlliancePositionId Int?
+  pnwSnapshot             Json?
+  pnwLastSynced           DateTime?
+  pnwLastActive           DateTime?
+  pnwNumCities            Int?
+  pnwAlliancePositionId   Int?
   pnwAlliancePositionName String?
-  pnwAllianceSeniority Int?
-  pnwNationName String?
-  pnwLeaderName String?
+  pnwAllianceSeniority    Int?
+  pnwNationName           String?
+  pnwLeaderName           String?
   // alliance membership
-  allianceId    String?
-  allianceRole  Int?      @default(0) // 0=no alliance, 1=applicant,2=member,5=leader
-  accounts      Account[]
-  sessions      Session[]
-  alliance      Alliance? @relation("AllianceMembers", fields: [allianceId], references: [id])
+  allianceId              String?
+  allianceRole            Int?       @default(0) // 0=no alliance, 1=applicant,2=member,5=leader
+  accounts                Account[]
+  sessions                Session[]
+  alliance                Alliance?  @relation("AllianceMembers", fields: [allianceId], references: [id])
   // if a user owns an alliance
-  ownedAlliance Alliance? @relation("AllianceOwner")
-  roles         UserRole[]
+  ownedAlliance           Alliance?  @relation("AllianceOwner")
+  roles                   UserRole[]
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?   @db.Text
-  access_token       String?   @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?   @db.Text
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -73,24 +73,25 @@ model VerificationToken {
 }
 
 model Alliance {
-  id          String  @id @default(cuid())
-  slug        String  @unique
-  pnwAllianceId Int?  @unique
-  name        String
-  whitelisted Boolean @default(false)
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  pnwAllianceId Int?    @unique
+  name          String
+  whitelisted   Boolean @default(false)
   // JSON object of module keys the alliance is granted, e.g. { "war": true, "economy": false }
-  modules     Json?
-  ownerId     String?  @unique
-  owner       User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
-  members     User[]  @relation("AllianceMembers")
-  roles       Role[]
+  modules       Json?
+  ownerId       String? @unique
+  owner         User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
+  members       User[]  @relation("AllianceMembers")
+  roles         Role[]
+  wars          War[]
 }
 
 model Role {
-  id         String   @id @default(cuid())
-  name       String
-  allianceId String
-  alliance   Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  id          String     @id @default(cuid())
+  name        String
+  allianceId  String
+  alliance    Alliance   @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   assignments UserRole[]
 
   @@unique([name, allianceId])
@@ -108,27 +109,27 @@ model UserRole {
 }
 
 model War {
-  id          String   @id @default(cuid())
-  pnwWarId    Int      @unique
-  allianceId  String
-  attackerId  Int      // PnW nation ID
-  defenderId  Int      // PnW nation ID
-  attackerName String?
-  defenderName String?
-  warType     String?  // "RAID", "ORDINARY", etc.
-  groundControl String? // "ATTACKER", "DEFENDER", "NONE"
+  id             String    @id @default(cuid())
+  pnwWarId       Int       @unique
+  allianceId     String
+  attackerId     Int // PnW nation ID
+  defenderId     Int // PnW nation ID
+  attackerName   String?
+  defenderName   String?
+  warType        String? // "RAID", "ORDINARY", etc.
+  groundControl  String? // "ATTACKER", "DEFENDER", "NONE"
   airSuperiority String? // "ATTACKER", "DEFENDER", "NONE"
-  navalBlockade String? // "ATTACKER", "DEFENDER", "NONE"
-  winner      Int?     // 0 = ongoing, 1 = attacker, 2 = defender
-  turnEnds    DateTime?
-  warStarted  DateTime
-  warEnded    DateTime?
-  isDefensive Boolean  // true if alliance member is defending
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  navalBlockade  String? // "ATTACKER", "DEFENDER", "NONE"
+  winner         Int? // 0 = ongoing, 1 = attacker, 2 = defender
+  turnEnds       DateTime?
+  warStarted     DateTime
+  warEnded       DateTime?
+  isDefensive    Boolean // true if alliance member is defending
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  alliance Alliance @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  alliance Alliance   @relation(fields: [allianceId], references: [id], onDelete: Cascade)
   alerts   WarAlert[]
 
   @@index([allianceId, isActive])
@@ -138,7 +139,7 @@ model War {
 model WarAlert {
   id        String   @id @default(cuid())
   warId     String
-  alertType String   // "NEW_DEFENSIVE_WAR", "WAR_ENDED", etc.
+  alertType String // "NEW_DEFENSIVE_WAR", "WAR_ENDED", etc.
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
