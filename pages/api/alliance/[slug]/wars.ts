@@ -128,7 +128,7 @@ async function syncWarsToDatabase(wars: any[], allianceId: string, pnwAllianceId
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const session = await getServerSession(req as any, res as any, authOptions as any)
+    const session = (await getServerSession(req as any, res as any, authOptions as any)) as any
     if (!session?.user?.email) {
       return res.status(401).json({ ok: false, message: 'Not authenticated' })
     }
