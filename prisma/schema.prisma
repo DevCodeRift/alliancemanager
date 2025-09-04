@@ -13,26 +13,23 @@ model User {
   email                   String?    @unique
   emailVerified           DateTime?
   image                   String?
-  pnwApiKey               String?    @db.Text
+  pnwApiKey               String?
+  allianceId              String?
+  allianceRole            Int?       @default(0)
   pnwNationId             Int?       @unique
-  // persisted Politics & War snapshot fields
-  pnwSnapshot             Json?
-  pnwLastSynced           DateTime?
-  pnwLastActive           DateTime?
-  pnwNumCities            Int?
   pnwAlliancePositionId   Int?
   pnwAlliancePositionName String?
   pnwAllianceSeniority    Int?
-  pnwNationName           String?
+  pnwLastActive           DateTime?
+  pnwLastSynced           DateTime?
   pnwLeaderName           String?
-  // alliance membership
-  allianceId              String?
-  allianceRole            Int?       @default(0) // 0=no alliance, 1=applicant,2=member,5=leader
+  pnwNationName           String?
+  pnwNumCities            Int?
+  pnwSnapshot             Json?
   accounts                Account[]
+  ownedAlliance           Alliance?  @relation("AllianceOwner")
   sessions                Session[]
   alliance                Alliance?  @relation("AllianceMembers", fields: [allianceId], references: [id])
-  // if a user owns an alliance
-  ownedAlliance           Alliance?  @relation("AllianceOwner")
   roles                   UserRole[]
 }
 
@@ -42,15 +39,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -60,8 +56,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -75,15 +70,14 @@ model VerificationToken {
 model Alliance {
   id            String  @id @default(cuid())
   slug          String  @unique
-  pnwAllianceId Int?    @unique
   name          String
   whitelisted   Boolean @default(false)
-  // JSON object of module keys the alliance is granted, e.g. { "war": true, "economy": false }
-  modules       Json?
   ownerId       String? @unique
+  pnwAllianceId Int?    @unique
+  modules       Json?
   owner         User?   @relation("AllianceOwner", fields: [ownerId], references: [id])
-  members       User[]  @relation("AllianceMembers")
   roles         Role[]
+  members       User[]  @relation("AllianceMembers")
   wars          War[]
 }
 
@@ -101,36 +95,34 @@ model UserRole {
   id     String @id @default(cuid())
   userId String
   roleId String
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
 }
 
 model War {
-  id             String    @id @default(cuid())
-  pnwWarId       Int       @unique
+  id             String     @id @default(cuid())
+  pnwWarId       Int        @unique
   allianceId     String
-  attackerId     Int // PnW nation ID
-  defenderId     Int // PnW nation ID
+  attackerId     Int
+  defenderId     Int
   attackerName   String?
   defenderName   String?
-  warType        String? // "RAID", "ORDINARY", etc.
-  groundControl  String? // "ATTACKER", "DEFENDER", "NONE"
-  airSuperiority String? // "ATTACKER", "DEFENDER", "NONE"
-  navalBlockade  String? // "ATTACKER", "DEFENDER", "NONE"
-  winner         Int? // 0 = ongoing, 1 = attacker, 2 = defender
+  warType        String?
+  groundControl  String?
+  airSuperiority String?
+  navalBlockade  String?
+  winner         Int?
   turnEnds       DateTime?
   warStarted     DateTime
   warEnded       DateTime?
-  isDefensive    Boolean // true if alliance member is defending
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  alliance Alliance   @relation(fields: [allianceId], references: [id], onDelete: Cascade)
-  alerts   WarAlert[]
+  isDefensive    Boolean
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  alliance       Alliance   @relation(fields: [allianceId], references: [id], onDelete: Cascade)
+  alerts         WarAlert[]
 
   @@index([allianceId, isActive])
   @@index([pnwWarId])
@@ -139,12 +131,11 @@ model War {
 model WarAlert {
   id        String   @id @default(cuid())
   warId     String
-  alertType String // "NEW_DEFENSIVE_WAR", "WAR_ENDED", etc.
+  alertType String
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-
-  war War @relation(fields: [warId], references: [id], onDelete: Cascade)
+  war       War      @relation(fields: [warId], references: [id], onDelete: Cascade)
 
   @@index([warId])
 }
