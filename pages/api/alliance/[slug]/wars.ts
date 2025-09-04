@@ -6,10 +6,44 @@ import { decryptText } from '../../../../src/lib/crypto'
 
 const PNW_GRAPHQL = 'https://api.politicsandwar.com/graphql'
 
-async function fetchAllianceWars(allianceId: number, apiKey: string) {
+async function fetchAllianceMembers(allianceId: number, apiKey: string) {
   const query = `
     query {
-      wars(alliance_id: [${allianceId}], active: true, first: 100) {
+      nations(alliance_id: ${allianceId}, first: 500) {
+        data {
+          id
+          nation_name
+          alliance_id
+        }
+      }
+    }
+  `
+
+  const response = await fetch(`${PNW_GRAPHQL}?api_key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+
+  const text = await response.text()
+  if (!response.ok) {
+    throw new Error(`PnW API error: ${response.status} ${text}`)
+  }
+
+  const parsed = JSON.parse(text)
+  if (parsed.errors) {
+    throw new Error(`GraphQL errors: ${JSON.stringify(parsed.errors)}`)
+  }
+
+  return parsed.data?.nations?.data || []
+}
+
+async function fetchWarsForNations(nationIds: number[], apiKey: string) {
+  if (nationIds.length === 0) return []
+
+  const query = `
+    query {
+      wars(nation_id: [${nationIds.join(',')}], active: true, first: 500) {
         data {
           id
           date
@@ -54,7 +88,7 @@ async function fetchAllianceWars(allianceId: number, apiKey: string) {
   return parsed.data?.wars?.data || []
 }
 
-async function syncWarsToDatabase(wars: any[], allianceId: string, pnwAllianceId: number) {
+async function syncWarsToDatabase(wars: any[], allianceId: string, pnwAllianceId: number, memberIds: number[]) {
   const existingWars = await prisma.war.findMany({
     where: { allianceId, isActive: true }
   })
@@ -71,12 +105,22 @@ async function syncWarsToDatabase(wars: any[], allianceId: string, pnwAllianceId
     })
   }
 
-  // Add or update wars from API
+  // Add or update wars from API - but only wars involving our alliance members
   for (const war of wars) {
     const warId = parseInt(war.id)
-    const isDefensive = war.defender.alliance_id === pnwAllianceId
     const defenderId = parseInt(war.defender.id)
     const attackerId = parseInt(war.attacker.id)
+    
+    // Check if this war involves our alliance members
+    const defenderIsOurs = memberIds.includes(defenderId)
+    const attackerIsOurs = memberIds.includes(attackerId)
+    
+    if (!defenderIsOurs && !attackerIsOurs) {
+      continue // Skip wars that don't involve our members
+    }
+    
+    // Determine if this is a defensive war for our alliance
+    const isDefensive = defenderIsOurs
 
     const warData = {
       pnwWarId: warId,
@@ -178,8 +222,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST' || sync === 'true') {
       // Sync wars from PnW API
-      const wars = await fetchAllianceWars(alliance.pnwAllianceId, apiKey)
-      await syncWarsToDatabase(wars, alliance.id, alliance.pnwAllianceId)
+      const members = await fetchAllianceMembers(alliance.pnwAllianceId, apiKey)
+      const memberIds = members.map((m: any) => parseInt(m.id))
+      const wars = await fetchWarsForNations(memberIds, apiKey)
+      await syncWarsToDatabase(wars, alliance.id, alliance.pnwAllianceId, memberIds)
     }
 
     // Return current wars and alerts from database
