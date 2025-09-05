@@ -1,13 +1,58 @@
-# AllianceManager Frontend (scaffold)
+# Alliance Manager
 
-This is a minimal Next.js + TypeScript frontend scaffold implementing an "Operating System" style UI (windows, tabs, signup/login) with a theme system using CSS variables so themes can be swapped per-alliance.
+A comprehensive web application for Politics & War alliance management with integrated Discord bot support.
 
-Quick start
+## 🏗️ **Architecture**
 
-1. npm install
-2. npm run dev
+- **Web Application**: Next.js + TypeScript frontend with API routes (deployed on Vercel)
+- **Discord Bot**: Node.js Discord bot for real-time alliance management (deployed on Railway/Render)
+- **Database**: Shared Neon PostgreSQL database with Prisma ORM
+- **Authentication**: Discord OAuth integration via NextAuth
 
-Deploy: This project is ready to deploy to Vercel. Link the repo and Vercel will detect Next.js.
+## 🚀 **Features**
+
+### **Web Application**
+- **Alliance Management**: Member tracking, role management, and administration
+- **War Module**: Real-time raid alerts and defensive war monitoring
+- **Discord Integration**: Configure Discord bot settings through web interface
+- **OS-Style UI**: Window-based interface with alliance-specific theming
+
+### **Discord Bot**
+- **Slash Commands**: `/raids`, `/members`, `/sync` for alliance information
+- **Automated Monitoring**: Real-time raid alerts posted to Discord channels
+- **Multi-Alliance Support**: Single bot instance supports multiple alliances
+- **Dynamic Configuration**: Settings managed through web application
+
+## 🏃 **Quick Start**
+
+### **Web Application (Local Development)**
+```bash
+npm install
+npm run dev
+```
+
+### **Discord Bot (Local Development)**
+```bash
+cd discord-bot
+npm install
+cp .env.example .env
+# Edit .env with your Discord bot token
+npm start
+```
+
+## 🌐 **Deployment**
+
+### **Web App (Vercel)**
+1. Connect repository to Vercel
+2. Vercel auto-detects Next.js and deploys
+3. Add environment variables (see below)
+
+### **Discord Bot (Railway/Render)**
+See [DISCORD_BOT_DEPLOYMENT.md](./DISCORD_BOT_DEPLOYMENT.md) for detailed instructions
+
+## 🔑 **Environment Variables**
+
+### **Web Application (.env)**
 
 ## Discord-only auth setup
 

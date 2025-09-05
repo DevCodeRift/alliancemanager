@@ -1,0 +1,4 @@
+# Vercel Build Exclusion
+discord-bot/
+*.md
+!README.md
