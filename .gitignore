@@ -13,3 +13,7 @@ yarn-error.log*
 dist/
 build/
 public/static
+
+# Discord bot environment
+discord-bot/.env
+discord-bot/node_modules/
